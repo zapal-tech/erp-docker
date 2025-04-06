@@ -1,0 +1,89 @@
+x-env: &env
+  WWW_USER_ID: ${WWW_USER_ID:-1000}
+  WWW_GROUP_ID: ${WWW_GROUP_ID:-1000}
+  DOLI_DB_HOST: ${DB_HOST}
+  DOLI_DB_NAME: ${DB_NAME}
+  DOLI_DB_USER: ${DB_USER}
+  DOLI_DB_PASSWORD: ${DB_PASSWORD}
+  DOLI_URL_ROOT: ${URL}
+  DOLI_CRON_USER: ${CRON_USER:-cron}
+  DOLI_CRON_KEY: ${CRON_KEY}
+  DOLI_COMPANY_NAME: ${COMPANY_NAME}
+  DOLI_COMPANY_COUNTRYCODE: ${COUNTRY_CODE:-UA}
+  DOLI_AUTH: ${AUTH_TYPE:-dolibarr}
+  DOLI_ENABLE_MODULES: ${INIT_MODULES:-Recruitment,Cron,Banque,Asset,DataPolicy,DocumentGeneration,ECM,ExpenseReport,Export,HRM,Holiday,Import,ModuleBuilder,MultiCurrency,Notification,Oauth,PaymentByBankTransfer,Printing,Projet,Webhook,Tax,SocialNetworks,Salaries,User,Service,Societe,Commande,Contrat,Propale,Fournisseur,Facture,Accounting,Workflow,BlockedLog,Bookmark,Categorie,Mailing,Dav,WebServices,Collab,Prelevement,Deplacement}
+  PHP_INI_DATE_TIMEZONE: ${TIMEZONE:-Europe/Kyiv}
+  PHP_INI_MEMORY_LIMIT: 1024M
+  PHP_INI_UPLOAD_MAX_FILESIZE: 128M
+  PHP_INI_POST_MAX_SIZE: 128M
+
+x-erp: &erp
+  image: dolibarr/dolibarr:21
+  restart: unless-stopped
+
+x-configs: &configs
+  configs:
+    - source: remoteip_load
+      target: /etc/apache2/mods-enabled/remoteip.load
+      mode: 0444
+    - source: remoteip_conf
+      target: /etc/apache2/mods-enabled/remoteip.conf
+      mode: 0444
+
+x-volumes: &volumes
+  volumes:
+    - ${VOLUME_PATH}/documents:/var/www/documents
+    - ${VOLUME_PATH}/custom:/var/www/html/custom
+
+x-deploy: &deploy
+  deploy:
+    resources:
+      limits:
+        cpus: "2"
+        memory: 2048M
+      reservations:
+        cpus: "0.1"
+        memory: 64M
+
+configs:
+  remoteip_load:
+    content: |
+      LoadModule remoteip_module /usr/lib/apache2/modules/mod_remoteip.so
+  remoteip_conf:
+    content: |
+      RemoteIPHeader X-Forwarded-For
+
+services:
+  erp:
+    <<: [*erp, *configs, *volumes, *deploy]
+
+    volumes:
+      - ${VOLUME_PATH}/documents:/var/www/documents
+      - ${VOLUME_PATH}/custom:/var/www/html/custom
+    environment:
+      <<: *env
+    ports:
+      - 12000:80
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:80"]
+      start_period: 20s
+      interval: 20s
+      timeout: 10s
+      retries: 15
+
+  erp-cron:
+    <<: [*erp, *configs, *volumes, *deploy]
+
+    environment:
+      <<: *env
+      DOLI_CRON: 1
+    depends_on:
+      - erp
+      # erp:
+      #   condition: service_healthy
+    healthcheck:
+      test: ["CMD", "sh", "-c", "service cron status | grep -q 'cron is running.' && exit 0 || exit 1"]
+      start_period: 5s
+      interval: 60s
+      timeout: 30s
+      retries: 5
