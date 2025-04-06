@@ -1,4 +1,6 @@
 x-env: &env
+  FQDN: ${FQDN:-localhost}
+  URL: http://localhost
   WWW_USER_ID: ${WWW_USER_ID:-1000}
   WWW_GROUP_ID: ${WWW_GROUP_ID:-1000}
   DOLI_DB_HOST: ${DB_HOST}
@@ -29,6 +31,9 @@ x-configs: &configs
     - source: remoteip_conf
       target: /etc/apache2/mods-enabled/remoteip.conf
       mode: 0444
+    - source: servername_conf
+      target: /etc/apache2/conf-enabled/servername.conf
+      mode: 0444
 
 x-volumes: &volumes
   volumes:
@@ -52,6 +57,9 @@ configs:
   remoteip_conf:
     content: |
       RemoteIPHeader X-Forwarded-For
+  servername_conf:
+    content: |
+      ServerName ${FQDN:-localhost}
 
 services:
   erp:
