@@ -58,8 +58,8 @@ services:
     <<: [*erp, *configs, *volumes, *deploy]
 
     volumes:
-      - ${VOLUME_PATH}/documents:/var/www/documents
-      - ${VOLUME_PATH}/custom:/var/www/html/custom
+      - /mnt/erp-volume/erp-data/documents:/var/www/documents
+      - /mnt/erp-volume/erp-data/custom:/var/www/html/custom
     environment:
       <<: *env
     ports:
